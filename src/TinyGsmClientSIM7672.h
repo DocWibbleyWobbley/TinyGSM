@@ -1,13 +1,13 @@
 /**
- * @file       TinyGsmClientSIM7600.h
- * @author     Volodymyr Shymanskyy
+ * @file       TinyGsmClientSIM7672.h
+ * @author     Nedko Boshkilov
  * @license    LGPL-3.0
- * @copyright  Copyright (c) 2016 Volodymyr Shymanskyy
- * @date       Nov 2016
+ * @copyright  Copyright (c) 2022 Nedko Boshkilov
+ * @date       Feb 2022
  */
 
-#ifndef SRC_TINYGSMCLIENTSIM7600_H_
-#define SRC_TINYGSMCLIENTSIM7600_H_
+#ifndef SRC_TINYGSMCLIENTSIM7672_H_
+#define SRC_TINYGSMCLIENTSIM7672_H_
 
 // #define TINY_GSM_DEBUG Serial
 // #define TINY_GSM_USE_HEX
@@ -19,28 +19,28 @@
 #include "TinyGsmGPS.tpp"
 #include "TinyGsmTCP.tpp"
 
-class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
-                       public TinyGsmTCP<TinyGsmSim7600, TINY_GSM_MUX_COUNT>,
-                       public TinyGsmGPS<TinyGsmSim7600> {
-  friend class TinyGsmSim76xx<TinyGsmSim7600>;
-  friend class TinyGsmTCP<TinyGsmSim7600, TINY_GSM_MUX_COUNT>;
-  friend class TinyGsmGPS<TinyGsmSim7600>;
+class TinyGsmSim7672 : public TinyGsmSim76xx<TinyGsmSim7672>,
+                       public TinyGsmTCP<TinyGsmSim7672, TINY_GSM_MUX_COUNT>,
+                       public TinyGsmGPS<TinyGsmSim7672> {
+  friend class TinyGsmSim76xx<TinyGsmSim7672>;
+  friend class TinyGsmTCP<TinyGsmSim7672, TINY_GSM_MUX_COUNT>;
+  friend class TinyGsmGPS<TinyGsmSim7672>;
 
   /*
    * Inner Client
    */
  public:
-  class GsmClientSim7600 : public GsmClient {
-    friend class TinyGsmSim7600;
+  class GsmClientSim7672 : public GsmClient {
+    friend class TinyGsmSim7672;
 
    public:
-    GsmClientSim7600() {}
+    GsmClientSim7672() {}
 
-    explicit GsmClientSim7600(TinyGsmSim7600& modem, uint8_t mux = 0) {
+    explicit GsmClientSim7672(TinyGsmSim7672& modem, uint8_t mux = 0) {
       init(&modem, mux);
     }
 
-    bool init(TinyGsmSim7600* modem, uint8_t mux = 0) {
+    bool init(TinyGsmSim7672* modem, uint8_t mux = 0) {
       this->at       = modem;
       sock_available = 0;
       prev_check     = 0;
@@ -89,12 +89,12 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
    */
 
   /*TODO(?))
-  class GsmClientSecureSIM7600 : public GsmClientSim7600
+  class GsmClientSecureSIM7672 : public GsmClientSim7672
   {
   public:
     GsmClientSecure() {}
 
-    GsmClientSecure(TinyGsmSim7600& modem, uint8_t mux = 0)
+    GsmClientSecure(TinyGsmSim7672& modem, uint8_t mux = 0)
      : public GsmClient(modem, mux)
     {}
 
@@ -114,8 +114,8 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
    * Constructor
    */
  public:
-  explicit TinyGsmSim7600(Stream& stream)
-      : TinyGsmSim76xx<TinyGsmSim7600>(stream) {
+  explicit TinyGsmSim7672(Stream& stream)
+      : TinyGsmSim76xx<TinyGsmSim7672>(stream) {
     memset(sockets, 0, sizeof(sockets));
   }
 
@@ -125,7 +125,7 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
  protected:
   bool initImpl(const char* pin = NULL) {
     DBG(GF("### TinyGSM Version:"), TINYGSM_VERSION);
-    DBG(GF("### TinyGSM Compiled Module:  TinyGsmClientSIM7600"));
+    DBG(GF("### TinyGSM Compiled Module:  TinyGsmClientSIM7672"));
 
     if (!testAT()) { return false; }
 
@@ -302,20 +302,24 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
  protected:
   // enable GPS
   bool enableGPSImpl(GpsStartMode startMode = GPS_START_AUTO) {
+    sendAT(GF("+CGNSSPWR=1"));
+    if (waitResponse(9000L) != 1) { return false; }
+    if (waitResponse(9000L, GSM_NL GF("+CGNSSPWR: READY!") GSM_NL) != 1) {
+      return false;
+    }
     switch (startMode) {
       case GPS_START_COLD: sendAT(GF("+CGPSCOLD")); break;
+      case GPS_START_WARM: sendAT(GF("+CGPSWARM")); break;
       case GPS_START_HOT: sendAT(GF("+CGPSHOT")); break;
-      default: sendAT(); break;
+      default: return true;
     }
-    if (waitResponse() != 1) { return false; }
-    sendAT(GF("+CGPS=1"));
-    if (waitResponse() != 1) { return false; }
+    if (waitResponse(9000L) != 1) { return false; }
     return true;
   }
 
   bool disableGPSImpl() {
-    sendAT(GF("+CGPS=0"));
-    if (waitResponse() != 1) { return false; }
+    sendAT(GF("+CGNSSPWR=0"));
+    if (waitResponse(9000L) != 1) { return false; }
     return true;
   }
 
@@ -335,7 +339,7 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
                   int* year = 0, int* month = 0, int* day = 0, int* hour = 0,
                   int* minute = 0, int* second = 0) {
     sendAT(GF("+CGNSSINFO"));
-    if (waitResponse(GF(GSM_NL "+CGNSSINFO:")) != 1) { return false; }
+    if (waitResponse(9000L, GF(GSM_NL "+CGNSSINFO:")) != 1) { return false; }
 
     uint8_t fixMode = streamGetIntBefore(',');  // mode 2=2D Fix or 3=3DFix
                                                 // TODO(?) Can 1 be returned
@@ -358,6 +362,7 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
       float secondWithSS = 0;
 
       streamSkipUntil(',');               // GPS satellite valid numbers
+      streamSkipUntil(',');               // Empty field
       streamSkipUntil(',');               // GLONASS satellite valid numbers
       streamSkipUntil(',');               // BEIDOU satellite valid numbers
       ilat  = streamGetFloatBefore(',');  // Latitude in ddmm.mmmmmm
@@ -381,11 +386,9 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
       ialt   = streamGetFloatBefore(',');  // MSL Altitude. Unit is meters
       ispeed = streamGetFloatBefore(',');  // Speed Over Ground. Unit is knots.
       streamSkipUntil(',');                // Course Over Ground. Degrees.
-      streamSkipUntil(',');  // After set, will report GPS every x seconds
       iaccuracy = streamGetFloatBefore(',');  // Position Dilution Of Precision
       streamSkipUntil(',');   // Horizontal Dilution Of Precision
-      streamSkipUntil(',');   // Vertical Dilution Of Precision
-      streamSkipUntil('\n');  // TODO(?) is one more field reported??
+      streamSkipUntil('\n');  // Vertical Dilution Of Precision
 
       // Set pointers
       if (lat != NULL)
@@ -697,8 +700,8 @@ class TinyGsmSim7600 : public TinyGsmSim76xx<TinyGsmSim7600>,
   }
 
  protected:
-  GsmClientSim7600* sockets[TINY_GSM_MUX_COUNT];
+  GsmClientSim7672* sockets[TINY_GSM_MUX_COUNT];
   const char*       gsmNL = GSM_NL;
 };
 
-#endif  // SRC_TINYGSMCLIENTSIM7600_H_
+#endif  // SRC_TINYGSMCLIENTSIM7672_H_
