@@ -102,6 +102,7 @@ class TinyGsmGPRS {
   // Asks for TA Serial Number Identification (IMEI) via the V.25TER standard
   // AT+GSN command
   String getIMEIImpl() {
+    while(thisModem().streamSkipUntil('\n')); // Flush input
     thisModem().sendAT(GF("+GSN"));
     thisModem().streamSkipUntil('\n');  // skip first newline
     String res = thisModem().stream.readStringUntil('\n');
