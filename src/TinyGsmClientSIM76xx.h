@@ -113,8 +113,9 @@ class TinyGsmSim76xx : public TinyGsmModem<TinyGsmSim76xx<modemType>>,
   bool restartImpl(const char* pin = NULL) {
     if (!thisModem().testAT()) { return false; }
     thisModem().sendAT(GF("+CRESET"));
-    if (waitResponse(10000L) != 1) { return false; }
-    delay(5000L);  // TODO(?):  Test this delay!
+    // After booting, modem sends out messages as each of its
+    // internal modules loads.  The final message is "PB DONE".
+    if (waitResponse(40000L, GF(GSM_NL "PB DONE")) != 1) { return false; }
     return thisModem().initImpl(pin);
   }
 
