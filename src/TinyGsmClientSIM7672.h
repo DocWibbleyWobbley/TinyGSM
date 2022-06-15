@@ -492,7 +492,7 @@ class TinyGsmSim7672 : public TinyGsmSim76xx<TinyGsmSim7672>,
     if (waitResponse(GF(">")) != 1) { return 0; }
     stream.write(reinterpret_cast<const uint8_t*>(buff), len);
     stream.flush();
-    if (waitResponse(GF(GSM_NL "+CIPSEND:")) != 1) { return 0; }
+    if (waitResponse(15000, GF(GSM_NL "+CIPSEND:")) != 1) { return 0; }
     streamSkipUntil(',');  // Skip mux
     streamSkipUntil(',');  // Skip requested bytes to send
     // TODO(?):  make sure requested and confirmed bytes match
